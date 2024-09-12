@@ -9,14 +9,25 @@ Width = 800
 Height = 600
 FPS = 60
 clock = pygame.time.Clock()
+anti_lag = 0
+#Stage variables#
+stage_count = 0
+stage_0 = False
+stage_1 = False
+stage_2 = False
 #Player variables#
 Gravity = 0.5
 Player_Jump_Strength = -10
 Player_Attack = 10
 Attack_Duration = 10
 player_image = pygame.image.load("player.png")
+sword_image = pygame.image.load("sword1.png")
 attack_speed = 10
 attacking = False
+attack_cooldown = 0
+dash_length = 250
+dash_cooldown = 0
+points = 0
 #Enemy variables#
 enemy_health = 100
 enemy_jump_strength = -8
@@ -31,7 +42,22 @@ red = (255,0,0)
 green = (0,255,0)
 blue  = (0,0,255)
 #Backgrounds#
+current_background = None
+background0 = pygame.image.load("background0.png")
 background1 = pygame.image.load("background1.png")
+#Background switch#
+def background_changing():
+    global current_background, background0, background1, stage_0, stage_1, stage_2
+    if stage_count == 0:
+        stage_0 = True
+    if stage_count == 1:
+        stage_0 = False
+        stage_1 = True
+
+    if stage_0:
+        current_background = background0
+    if stage_1:
+        current_background = background1
 
 #Screen setup#
 screen = pygame.display.set_mode((Width,Height))
@@ -51,16 +77,15 @@ class Player(pygame.sprite.Sprite):
         self.attack_timer = 0
         self.facing = "right"
 
+        #Attack hitbox setup#
+        self.attack_hitbox = pygame.Rect(self.rect.right,self.rect.y,40,50)
+
         #Attack overlay setup#
-        self.attack_overlay = pygame.Surface((20,20))
-        self.attack_overlay.fill(blue)
+        self.attack_overlay = sword_image
         self.attack_overlay_rect = self.attack_overlay.get_rect()
 
-        #Attack hitbox setup#
-        self.attack_hitbox = pygame.Rect(self.rect.right,self.rect.y,20,50)
-
     def update(self):
-        global attacking
+        global attacking, dash_cooldown
         keys = pygame.key.get_pressed()
 
         #Left & Right movement#
@@ -73,27 +98,31 @@ class Player(pygame.sprite.Sprite):
             self.rect.x += 5
             if self.facing != "right":
                 self.facing = "right"
-                self.image = pygame.transform.flip(self.image, True, False)
+                self.image = pygame.transform.flip(self.image,True,False)
 
         #Jumpies#
         if keys[pygame.K_w] and self.on_ground:
             self.velocity_y = Player_Jump_Strength
             self.on_ground = False
 
+        #Dash#
+        if keys[pygame.K_LSHIFT] and dash_cooldown <= 0:
+            if self.facing == "right":
+                self.rect.x += dash_length
+            if self.facing == "left":
+                self.rect.x -= dash_length
+            dash_cooldown = 300
+
         #Attack#
-        if self.attack:
-            self.attack_timer = attack_speed
         if self.attack:
             self.attack_timer -= 1
             if self.facing == "right":
                 self.attack_overlay_rect.midleft = self.rect.midright
             else:
                 self.attack_overlay_rect.midright = self.rect.midleft
+
         if self.attack_timer <= 0:
             self.attack = False
-        if keys[pygame.K_SPACE] and not self.attack:
-            self.attack = True
-            
 
         #Gravity#
         self.velocity_y += Gravity
@@ -129,7 +158,12 @@ class Player(pygame.sprite.Sprite):
     def draw(self):
         screen.blit(self.image, self.rect)
         if self.attack:
-            screen.blit(self.attack_overlay, self.attack_overlay_rect)
+            if self.facing == "right":
+                screen.blit(self.attack_overlay, self.attack_overlay_rect)
+            if self.facing == "left":
+                self.attack_overlay_flipped = pygame.transform.flip(self.attack_overlay,True,False)
+                screen.blit(self.attack_overlay_flipped, self.attack_overlay_rect)
+
 
 #Platform class#
 class Platform(pygame.sprite.Sprite):
@@ -216,22 +250,24 @@ class Enemy(pygame.sprite.Sprite):
             self.velocity_y = 0
             self.on_ground_enemy = True
 
-    def take_damage(self,amount):
+    def take_damage(self,amount,points):
         self.health -= amount
         if self.health <= 0:
+            points += 1
             self.kill()
+        return points
 
 #Create *things*#
+#Collision boxes#
+collision_box = pygame.sprite.Group()
+collision_box.add(Platform(790, Height - 80,60,60))
 #Player#
 player = Player()
 #Platforms#
 platforms = pygame.sprite.Group()
-platforms.add(Platform(100,Height - 100,200,20))
-platforms.add(Platform(400,Height - 200,300,20))
 platforms.add(Platform(0,Height - 20,Width,20))
 #Enemies#
 enemies = pygame.sprite.Group()
-enemies.add(Enemy(200,Height - 150,player))
 
 #Sprite group#
 all_sprites = pygame.sprite.Group()
@@ -241,17 +277,31 @@ all_sprites.add(enemies)
 
 #Game loop#
 while True:
+    background_changing()
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             pygame.quit()
             sys.exit()
+        #Attack#
+        if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE and player.attack_timer <= 0 and attack_cooldown <= 0:
+            player.attack = True
+            player.attack_timer = Attack_Duration
+            attack_cooldown = 75
+
+
+    if player.attack:
+        player.attack_timer -= 1
+    if player.attack_timer <= 0:
+        player.attack = False
+    attack_cooldown -= 1
+    dash_cooldown -= 1
 
     all_sprites.update()
 
     if player.attack:
         hits_enemy = [enemy for enemy in enemies if player.attack_hitbox.colliderect(enemy.rect)]
         for enemy in hits_enemy:
-            enemy.take_damage(Player_Attack)
+            enemy.take_damage(Player_Attack, points)
     #Collision#
     hits_platform = pygame.sprite.spritecollide(player,platforms,False)
     if hits_platform:
@@ -259,10 +309,29 @@ while True:
             player.rect.bottom = hits_platform[0].rect.top
             player.velocity_y = 0
             player.on_ground = True
-    bumps_enemy =pygame.sprite.spritecollide(player,enemies,False)
+    bumps_enemy = pygame.sprite.spritecollide(player,enemies,False)
     if bumps_enemy:
         '''pygame.quit()
         sys.exit()'''
+    collision_box_hit = pygame.sprite.spritecollide(player,collision_box,False)
+    if collision_box_hit:
+        stage_count += 1
+        anti_lag = 1
+        platforms.empty()
+        enemies.empty()
+        all_sprites.remove(*all_sprites)
+        player.rect.x = 0
+        player.rect.y = Height - 20 - player.rect.height
+    if stage_1 == True and anti_lag == 1:
+        platforms.add(Platform(100, Height - 100, 200, 20))
+        platforms.add(Platform(400, Height - 200, 300, 20))
+        enemies.add(Enemy(200, Height - 150, player))
+        #Base platform#
+        platforms.add(Platform(0, Height - 20, Width, 20))
+        anti_lag = 0
+    all_sprites.add(player)
+    all_sprites.add(platforms)
+    all_sprites.add(enemies)
 
     #Enemy 'ai'#
     enemy_tick += 1
@@ -272,16 +341,19 @@ while True:
     enemy_number = enemy_random_gen
 
     #Drawings#
-    screen.blit(background1,[0,0])
+    screen.blit(current_background,[0,0])
     all_sprites.draw(screen)
     player.draw()
+    collision_box.draw(screen)
 
     #Refreshing and updating screen#
     pygame.display.update()
     clock.tick(FPS)
-    print(f"On ground: {player.on_ground}")
+
+    '''print(f"On ground: {player.on_ground}")
     print(f"Facing: {player.facing}")
     print(f"Attacking: {player.attack}")
     print(f"Enemy tick: {enemy_tick}")
     print(enemy_random_gen)
-    print(enemy_number)
+    print(enemy_number)'''
+    print(points)
