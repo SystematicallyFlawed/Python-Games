@@ -1,9 +1,11 @@
 #Imports#
+
 import pygame
 pygame.init()
 import sys
 import random
 import tkinter as tk
+import time
 
 #Variables#
 Width = 800
@@ -54,11 +56,16 @@ attack_cooldown = 0
 dash_length = 250
 dash_cooldown = 0
 points = 0
-player_health = 100
+player_health = 1000
 iframes = 0
 noshop_frames = 0
+slide_velocity = 0
+sliding = False
+slide_friction = 0.9
+can_camp = True
 #Enemy variables#
 enemy_health = 100
+strong_enemy_health = 200
 enemy_jump_strength = -8
 enemy_tick = 0
 enemy_action_time = 100
@@ -84,6 +91,7 @@ background3 = pygame.image.load("Assets/Backgrounds/background3.png")
 background4 = pygame.image.load("Assets/Backgrounds/background4.png")
 background5 = pygame.image.load("Assets/Backgrounds/background5.png")
 background6 = pygame.image.load("Assets/Backgrounds/background6.png")
+background7 = pygame.image.load("Assets/Backgrounds/background7.png")
 
 background19 = pygame.image.load("Assets/Backgrounds/background19.png")
 background20 = pygame.image.load("Assets/Backgrounds/background20.png")
@@ -569,6 +577,8 @@ def background_changing():
         current_background = background5
     if stage_6:
         current_background = background6
+    if stage_7:
+        current_background = background7
 
     if stage_19:
         current_background = background19
@@ -717,6 +727,13 @@ def stage6():
     # Makes not infinitely spawn sprites#
     anti_lag = 0
 
+def stage7():
+    global anti_lag
+    # Base platform#
+    platforms.add(Platform(0, Height - 20, Width, 20))
+    #Campfire collision#
+    campfire_box.add(Campfire(385,540,30,40))
+
 #Player class#
 class Player(pygame.sprite.Sprite):
     def __init__(self):
@@ -852,11 +869,21 @@ class CollisionBox(pygame.sprite.Sprite):
         self.rect = self.image.get_rect()
         self.rect.topleft = (x,y)
 
+#Anti-pass#
 class AntiPass(pygame.sprite.Sprite):
     def __init__(self,x,y,width,height):
         super().__init__()
         self.image = pygame.Surface((width,height))
         self.image.fill(green)
+        self.rect = self.image.get_rect()
+        self.rect.topleft = (x,y)
+
+#Campfire#
+class Campfire(pygame.sprite.Sprite):
+    def __init__(self,x,y,width,height):
+        super().__init__()
+        self.image = pygame.Surface((width,height))
+        self.image.fill(blue)
         self.rect = self.image.get_rect()
         self.rect.topleft = (x,y)
 
@@ -955,6 +982,7 @@ class Enemy(pygame.sprite.Sprite):
 
 #Strong enemy#
 class Strong_Enemy(pygame.sprite.Sprite):
+
     def __init__(self,x,y,player):
         super().__init__()
         self.player = player
@@ -962,7 +990,7 @@ class Strong_Enemy(pygame.sprite.Sprite):
         self.rect = self.image.get_rect()
         self.rect.center = (Width // 2, Height // 2)
         self.rect.topleft = (x,y)
-        self.health = enemy_health
+        self.health = strong_enemy_health
         self.velocity_y = 0
         self.on_ground_enemy = False
         self.facing = "right"
@@ -1031,6 +1059,8 @@ damage_box = pygame.sprite.Group()
 damage_box.add(CollisionBox(230,0,570,360))
 #Shop boxes#
 shop_box = pygame.sprite.Group()
+#Campfire boxes#
+campfire_box = pygame.sprite.Group()
 #Player#
 player = Player()
 #Platforms#
@@ -1081,6 +1111,10 @@ while Bugging:
         hits_enemy = [enemy for enemy in enemies if player.attack_hitbox.colliderect(enemy.rect)]
         for enemy in hits_enemy:
             enemy.take_damage(Player_Attack)
+    if player.attack:
+        hits_strong_enemy = [strong_enemy for strong_enemy in strong_enemies if player.attack_hitbox.colliderect(strong_enemy.rect)]
+        for strong_enemy in hits_strong_enemy:
+            strong_enemy.take_damage(Player_Attack)
     #Collision#
     hits_platform = pygame.sprite.spritecollide(player,platforms,False)
     if hits_platform:
@@ -1088,6 +1122,7 @@ while Bugging:
             player.rect.bottom = hits_platform[0].rect.top
             player.velocity_y = 0
             player.on_ground = True
+
     hits_wall = pygame.sprite.spritecollide(player,walls,False)
     if hits_wall:
         if player.facing == "right":
@@ -1110,6 +1145,14 @@ while Bugging:
         if player.facing == "left":
             player.rect.x = player.rect.x + 10
 
+    hits_campfire = pygame.sprite.spritecollide(player,campfire_box,False)
+    if hits_campfire and can_camp == True:
+        player_health += 20
+        can_camp = False
+        screen.fill(black)
+        pygame.display.update()
+        time.sleep(0.5)
+
     #Player taking damage#
     bumps_enemy = pygame.sprite.spritecollide(player,enemies,False)
     iframes -= 1
@@ -1119,7 +1162,20 @@ while Bugging:
     bumps_strong_enemy = pygame.sprite.spritecollide(player,strong_enemies, False)
     if bumps_strong_enemy and iframes <= 0:
         player_health -= strong_enemy_damage
-        iframes = 60
+        iframes = 5
+        for strong_enemy in strong_enemies:
+            if strong_enemy.facing == "left":
+                slide_velocity = -10
+            if strong_enemy.facing == "right":
+                slide_velocity = 10
+        sliding = True
+    if sliding:
+        player.rect.x += slide_velocity
+        slide_velocity *= slide_friction
+        if abs(slide_velocity) < 0.1:
+            slide_velocity = 0
+            sliding = False
+
     if player_health <= 0:
         Bugging = False
     damage_box_in = pygame.sprite.spritecollide(player,damage_box,False)
@@ -1142,7 +1198,7 @@ while Bugging:
     if collision_box_hit:
         boss_tick += 1
         if 1 < stage_count and (boss_tick != 19 or boss_tick != 20):
-            stage_count = random.randint(2,6)
+            stage_count = random.randint(2,7)
         if stage_count <= 1:
             stage_count += 1
         if boss_tick == (19 or 20):
@@ -1160,7 +1216,9 @@ while Bugging:
         shop_box.empty()
         antipass_box.empty()
         strong_enemies.empty()
+        campfire_box.empty()
         player.rect.y = Height - 20 - player.rect.height
+        can_camp = True
     if stage_1 == True and anti_lag == 1 and stage_count == 1:
         stage1()
     if stage_2 == True and anti_lag == 1 and stage_count == 2:
@@ -1173,6 +1231,8 @@ while Bugging:
         stage5()
     if stage_6 == True and anti_lag == 1 and stage_count == 6:
         stage6()
+    if stage_7 == True and anti_lag == 1 and stage_count ==7:
+        stage7()
 
     all_sprites.add(player)
     all_sprites.add(platforms)
@@ -1193,7 +1253,8 @@ while Bugging:
     collision_box.draw(screen)
     '''damage_box.draw(screen)'''
     walls.draw(screen)
-    '''shop_box.draw(screen)'''
+    '''shop_box.draw(screen)
+    campfire_box.draw(screen)'''
     #Stats#
     current_health = writing_font.render(f"Current Health: {player_health}",True,red)
     screen.blit(current_health, [0,0])
