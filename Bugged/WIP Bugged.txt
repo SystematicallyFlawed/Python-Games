@@ -2,3 +2,12 @@ THIS IS A WORK IN PROGRESS
 Bugged IS NOT finished
 
 Simple proof of concept attempt to make a platformer with enemies and simple combat
+
+#Controls#
+W - Jump
+A - Left
+D - Right
+Space - Attack
+F - Fire the V1
+R - Reload the V1
+E - Throw coin
