@@ -1445,11 +1445,17 @@ while Bugging:
             boss.take_damage(V1_damage)
             bullet.kill()
 
-        coin_shot = pygame.sprite.spritecollide(bullet,coins,False)
+        coin_shot = pygame.sprite.spritecollide(bullet,coins,True)
         if coin_shot:
             if len(enemies) > 0:
                 enemy = enemies.sprites()[0]
-                enemy.take_damage(50)
+                enemy.take_damage(200)
+            if len(strong_enemies) > 0:
+                strong_enemy = strong_enemies.sprites()[0]
+                strong_enemy.take_damage(200)
+            if len(bosses) > 0:
+                boss = bosses.sprites()[0]
+                boss.take_damage(200)
     #Collision#
     hits_platform = pygame.sprite.spritecollide(player,platforms,False)
     if hits_platform:
