@@ -79,6 +79,15 @@ bullets_in_mag = 4
 reload_time = 2000
 reloading_V1 = False
 V1_damage = 100
+mag_images = [
+    pygame.image.load("Assets/Player/V1 Mag 0.png"),
+    pygame.image.load("Assets/Player/V1 Mag 1.png"),
+    pygame.image.load("Assets/Player/V1 Mag 2.png"),
+    pygame.image.load("Assets/Player/V1 Mag 3.png"),
+    pygame.image.load("Assets/Player/V1 Mag 4.png")
+    ]
+mag_display_time = 5000
+mag_display_active = False
 #Enemy variables#
 enemy_health = 100
 strong_enemy_health = 200
@@ -672,7 +681,7 @@ def buy_health():
 def buy_bullets():
     global points, bullet_count
     if points >= 5:
-        points -= 2
+        points -= 5
         bullet_count += 4
 
 def shop_menu(points):
@@ -1368,6 +1377,21 @@ while Bugging:
                 bullet_count -= 4
                 if V1 is not None:
                     V1.finish_reload()
+
+        #Checking mag#
+        if event.type == pygame.KEYDOWN and event.key == pygame.K_t:
+            if not mag_display_active:
+                mag_display_start_time = pygame.time.get_ticks()
+                mag_display_active = True
+
+        if mag_display_active:
+            current_time = pygame.time.get_ticks()
+            if current_time - mag_display_start_time < mag_display_time:
+                mag_image = mag_images[bullets_in_mag]
+                screen.blit(mag_image, (0,70))
+                pygame.display.update()
+            else:
+                mag_display_active = False
 
     #Holstering the V1#
     if len(bullets) == 0:
