@@ -11,3 +11,5 @@ Space - Attack
 F - Fire the V1
 R - Reload the V1
 E - Throw coin
+T - Check magazine
+Y - Check bullets in bag
