@@ -5,8 +5,10 @@ import sys
 import random
 import tkinter as tk
 import time
+import Menu
 
 #Variables#
+Bugging = False
 Width = 800
 Height = 600
 FPS = 60
@@ -46,16 +48,18 @@ Player_Speed = 5
 Player_Attack = 10
 Attack_Duration = 10
 player_image = pygame.image.load("Assets/Player/player.png")
+player_reinforced_image = pygame.image.load("Assets/Player/player-reinforced.png")
 ironsword_image = pygame.image.load("Assets/Swords/ironsword.png")
 have_ironsword = True
 steelsword_image = pygame.image.load("Assets/Swords/steelsword.png")
 have_steelsword = False
+reinforced_armor = False
 attack_speed = 10
 attacking = False
 attack_cooldown = 0
 dash_length = 250
 dash_cooldown = 0
-points = 0
+points = 20
 player_health = 100
 iframes = 0
 noshop_frames = 0
@@ -68,7 +72,9 @@ coin_image = pygame.image.load("Assets/Player/coin.png")
 throw_timer = 0
 #GUN#
 V1_image = pygame.image.load("Assets/Player/The V1 (Better).png")
+V1_image_reinforced = pygame.image.load("Assets/Player/The V1 (Better) reinforced armor.png")
 V1_empty_image = pygame.image.load("Assets/Player/The V1 Empty (Better).png")
+V1_empty_image_reinforced = pygame.image.load("Assets/Player/The V1 Empty (Better) reinforced armor.png")
 V1_mag = pygame.image.load("Assets/Player/The V1 Mag.png")
 bullet_image = pygame.image.load("Assets/Player/bullet.png")
 bullet_count = 4
@@ -88,6 +94,10 @@ mag_images = [
     ]
 mag_display_time = 5000
 mag_display_active = False
+display_ammo = False
+ammo_display_active = False
+ammo_display_start_time = 0
+ammo_display_duration = 3000
 #Enemy variables#
 enemy_health = 100
 strong_enemy_health = 200
@@ -619,8 +629,12 @@ def background_changing():
 screen = pygame.display.set_mode((Width,Height))
 pygame.display.set_caption("Bugged")
 
+#Main menu stuff#
+game_state = "menu"
+
 #Functions#
 def game_end():
+    global game_state
     game_over = True
     font = pygame.font.SysFont("inkfree", 100)
     lost_message = "Run Corrupted"
@@ -640,8 +654,10 @@ def game_end():
         if Index == lost_message_length:
             pygame.time.delay(2000)
             game_over = False
+            game_state = "menu"
 
 def game_won():
+    global game_state
     game_win = True
     font = pygame.font.SysFont("inkfree", 100)
     win_message = "Corruption Purged"
@@ -661,6 +677,7 @@ def game_won():
         if Index == win_message_length:
             pygame.time.delay(2000)
             game_win = False
+            game_state = "menu"
 
 #Swords#
 def buy_steelsword():
@@ -684,6 +701,13 @@ def buy_bullets():
         points -= 5
         bullet_count += 4
 
+#Armor upgrades#
+def buy_reinforced_armor():
+    global points, reinforced_armor
+    if points >= 20:
+        points -= 20
+        reinforced_armor = True
+
 def shop_menu(points):
     global noshop_frames
     root = tk.Tk()
@@ -694,14 +718,19 @@ def shop_menu(points):
     points_label.pack(pady=5)
 
     #Buying stuff#
-    steelsword_button = tk.Button(root, text="Buy Steel Sword (5 points)", command=buy_steelsword)
-    steelsword_button.pack(pady=5)
+    if have_steelsword == False:
+        steelsword_button = tk.Button(root, text="Buy Steel Sword (5 points)", command=buy_steelsword)
+        steelsword_button.pack(pady=5)
 
     health_button = tk.Button(root, text="Buy more health (3 points for 20 health)", command=buy_health)
     health_button.pack(pady=5)
 
     bullets_button = tk.Button(root, text="Buy some bullets (5 points for 4 bullets)",  command=buy_bullets)
     bullets_button.pack(pady=5)
+
+    if reinforced_armor == False:
+        reinforced_armor_button = tk.Button(root, text="Buy reinforced armor (20 points)", command=buy_reinforced_armor())
+        reinforced_armor_button.pack(pady=5)
 
     noshop_frames = 300
     root.mainloop()
@@ -808,6 +837,12 @@ class Player(pygame.sprite.Sprite):
         global attacking, dash_cooldown
         keys = pygame.key.get_pressed()
 
+        #Reinforced armor check#
+        if reinforced_armor:
+            self.image = player_reinforced_image
+        else:
+            self.image = self.original_image.copy()
+
         #Left & Right movement#
         if keys[pygame.K_a]:
             self.rect.x -= Player_Speed
@@ -819,6 +854,10 @@ class Player(pygame.sprite.Sprite):
             if self.facing != "right":
                 self.facing = "right"
                 self.image = pygame.transform.flip(self.image,True,False)
+
+        #Really make sure the player is facing the right way#
+        if self.facing == "left":
+            self.image = pygame.transform.flip(self.image, True, False)
 
         #Jumpies#
         if keys[pygame.K_w] and self.on_ground:
@@ -919,8 +958,14 @@ class Coin(pygame.sprite.Sprite):
 class The_V1(pygame.sprite.Sprite):
     def __init__(self, x, y, player):
         super().__init__()
-        self.image = V1_image
-        self.empty_image = V1_empty_image
+        if reinforced_armor == False:
+            self.image = V1_image
+        if reinforced_armor == True:
+            self.image = V1_image_reinforced
+        if reinforced_armor == False:
+            self.empty_image = V1_empty_image
+        if reinforced_armor == True:
+            self.empty_image = V1_empty_image_reinforced
         self.rect = self.image.get_rect()
         self.rect.x = x
         self.rect.y = y
@@ -936,7 +981,10 @@ class The_V1(pygame.sprite.Sprite):
 
     def finish_reload(self):
         self.reloading = False
-        self.image = V1_image
+        if reinforced_armor == False:
+            self.image = V1_image
+        if reinforced_armor == True:
+            self.image == V1_image_reinforced
 
     def update(self):
         if self.player.facing == "right":
@@ -1306,347 +1354,404 @@ all_sprites = pygame.sprite.Group()
 all_sprites.add(player)
 all_sprites.add(platforms)
 all_sprites.add(enemies)
-
-#While true the game is running#
-Bugging = True
 #Game loop#
+Bugging = True
 while Bugging:
-    if boss_tick == 39:
-        stage_count = 39
-    if boss_tick == 40:
-        stage_count = 40
-    background_changing()
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            pygame.quit()
-            sys.exit()
-        #Suicide#
-        if event.type == pygame.KEYDOWN and event.key == pygame.K_BACKSPACE:
-            Bugging = False
-        #Dev buttons#
-        if event.type == pygame.KEYDOWN and event.key == pygame.K_END:
-            boss_tick = 39
+    if game_state == "menu":
+        game_state = Menu.main_menu(screen, game_state)
+        player_health = 100
+    elif game_state == "game":
+        if boss_tick == 39:
             stage_count = 39
-        if event.type == pygame.KEYDOWN and event.key == pygame.K_DELETE:
-            FPS = 1
-        #Attack#
-        if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE and player.attack_timer <= 0 and attack_cooldown <= 0:
-            player.attack = True
-            player.attack_timer = Attack_Duration
-            attack_cooldown = 75
-        #Coin throw#
-        if event.type == pygame.KEYDOWN and event.key == pygame.K_e and throw_timer <= 0 and len(coins) == 0:
-                new_coin = Coin(player.rect.centerx, player.rect.centery)
-                all_sprites.add(new_coin)
-                coins.add(new_coin)
-        #GUN BANG#
-        if event.type == pygame.KEYDOWN and event.key == pygame.K_f and bullets_in_mag > 0 and not reloading_V1:
-            V1_firing = True
-            bullets_in_mag -= 1
-            if V1 is None:
-                V1 = The_V1(player.rect.centerx, player.rect.centery, player)
-                all_sprites.add(V1)
+        if boss_tick == 40:
+            stage_count = 40
+        background_changing()
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            #Suicide#
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_BACKSPACE:
+                player_health *= 0
+            #Dev buttons#
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_END:
+                boss_tick = 39
+                stage_count = 39
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_DELETE:
+                FPS = 1
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_PAGEDOWN:
+                V1_damage = 1000
+            #Attack#
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE and player.attack_timer <= 0 and attack_cooldown <= 0:
+                player.attack = True
+                player.attack_timer = Attack_Duration
+                attack_cooldown = 75
+            #Coin throw#
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_e and throw_timer <= 0 and len(coins) == 0:
+                    new_coin = Coin(player.rect.centerx, player.rect.centery)
+                    all_sprites.add(new_coin)
+                    coins.add(new_coin)
+            #GUN BANG#
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_f and bullets_in_mag > 0 and not reloading_V1:
+                V1_firing = True
+                bullets_in_mag -= 1
+                if V1 is None:
+                    V1 = The_V1(player.rect.centerx, player.rect.centery, player)
+                    all_sprites.add(V1)
+                    V1_timer = pygame.time.get_ticks()
+
+                V1.rect.x = player.rect.right if player.facing == "right" else player.rect.left - V1.rect.width
+                V1.rect.y = player.rect.centery
+
+                if player.facing == "right":
+                    new_bullet = Bullet(V1.rect.right - 12, V1.rect.centery - 28)
+                if player.facing == "left":
+                    new_bullet = Bullet(V1.rect.left - 28, V1.rect.centery - 28)
+
+                all_sprites.add(new_bullet)
+                bullets.add(new_bullet)
+
+            #Reloading#
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_r and bullets_in_mag == 0 and bullet_count > 0 and not reloading_V1:
+                if V1 is None:
+                    V1 = The_V1(player.rect.centerx, player.rect.centery, player)
+                    all_sprites.add(V1)
+
+                reloading_V1 = True
+                reload_start_time = pygame.time.get_ticks()
+                V1.start_reload()
+                ejected_mag = V1_Mag(V1.rect.x, V1.rect.y)
+                all_sprites.add(ejected_mag)
+            if reloading_V1:
+                if pygame.time.get_ticks() - reload_start_time > reload_time:
+                    reloading_V1 = False
+                    bullets_in_mag += 4
+                    bullet_count -= 4
+                    if V1 is not None:
+                        V1.finish_reload()
+
+            #Checking mag#
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_t:
+                if not mag_display_active:
+                    mag_display_start_time = pygame.time.get_ticks()
+                    mag_display_active = True
+
+            #Checking ammo#
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_y:
+                ammo_display_active = True
+                ammo_display_start_time = pygame.time.get_ticks()
+
+        #Holstering the V1#
+        if len(bullets) == 0:
+            if V1_firing:
                 V1_timer = pygame.time.get_ticks()
+                V1_firing = False
+        else:
+            V1_timer = pygame.time.get_ticks()
 
-            V1.rect.x = player.rect.right if player.facing == "right" else player.rect.left - V1.rect.width
-            V1.rect.y = player.rect.centery
+        if V1 is not None and pygame.time.get_ticks() - V1_timer > 750 and reloading_V1 is not True:
+            all_sprites.remove(V1)
+            V1.kill()
+            V1 = None
 
+
+        if player.attack:
+            player.attack_timer -= 1
+        if player.attack_timer <= 0:
+            player.attack = False
+        attack_cooldown -= 1
+        dash_cooldown -= 1
+
+        all_sprites.update()
+
+        if have_steelsword:
+            Player_Attack = 20
+        if player.attack:
+            hits_enemy = [enemy for enemy in enemies if player.attack_hitbox.colliderect(enemy.rect)]
+            for enemy in hits_enemy:
+                enemy.take_damage(Player_Attack)
+
+            hits_strong_enemy = [strong_enemy for strong_enemy in strong_enemies if player.attack_hitbox.colliderect(strong_enemy.rect)]
+            for strong_enemy in hits_strong_enemy:
+                strong_enemy.take_damage(Player_Attack)
+
+            hits_boss = [boss for boss in bosses if player.attack_hitbox.colliderect(boss.rect)]
+            for boss in hits_boss:
+                boss.take_damage(Player_Attack)
+        #Special interaction#
+        for bullet in bullets:
+            shot_enemy = [enemy for enemy in enemies if bullet.rect.colliderect(enemy.rect)]
+            for enemy in shot_enemy:
+                enemy.take_damage(V1_damage)
+                bullet.kill()
+            shot_strong_enemy = [strong_enemy for strong_enemy in strong_enemies if bullet.rect.colliderect(strong_enemy.rect)]
+            for strong_enemy in shot_strong_enemy:
+                strong_enemy.take_damage(V1_damage)
+                bullet.kill()
+            shot_boss = [boss for boss in bosses if bullet.rect.colliderect(boss.rect)]
+            for boss in shot_boss:
+                boss.take_damage(V1_damage)
+                bullet.kill()
+
+            coin_shot = pygame.sprite.spritecollide(bullet,coins,True)
+            if coin_shot:
+                if len(enemies) > 0:
+                    enemy = enemies.sprites()[0]
+                    enemy.take_damage(200)
+                if len(strong_enemies) > 0:
+                    strong_enemy = strong_enemies.sprites()[0]
+                    strong_enemy.take_damage(200)
+                if len(bosses) > 0:
+                    boss = bosses.sprites()[0]
+                    boss.take_damage(200)
+
+        # Damage stuff#
+        if reinforced_armor:
+            enemy_damage = 10
+            strong_enemy_damage = 20
+            boss_damage = 30
+
+        #Collision#
+        hits_platform = pygame.sprite.spritecollide(player,platforms,False)
+        if hits_platform:
+            if player.velocity_y > 0:
+                player.rect.bottom = hits_platform[0].rect.top
+                player.velocity_y = 0
+                player.on_ground = True
+
+        hits_wall = pygame.sprite.spritecollide(player,walls,False)
+        if hits_wall:
             if player.facing == "right":
-                new_bullet = Bullet(V1.rect.right - 12, V1.rect.centery - 28)
+                player.rect.x = player.rect.x - 10
             if player.facing == "left":
-                new_bullet = Bullet(V1.rect.left - 28, V1.rect.centery - 28)
+                player.rect.x = player.rect.x + 10
+        if (stage_5 == True and stage_count == 5):
+            for enemy in enemies:
+                enemy_hits_wall = pygame.sprite.spritecollide(enemy,walls,False)
+                if enemy_hits_wall:
+                    if enemy.facing == "right":
+                        enemy.rect.x = enemy.rect.x - 10
+                    if enemy.facing == "left":
+                        enemy.rect.x = enemy.rect.x + 10
 
-            all_sprites.add(new_bullet)
-            bullets.add(new_bullet)
+        hits_anti = pygame.sprite.spritecollide(player,antipass_box,False)
+        if hits_anti:
+            if player.facing == "right":
+                player.rect.x = player.rect.x - 10
+            if player.facing == "left":
+                player.rect.x = player.rect.x + 10
 
-        #Reloading#
-        if event.type == pygame.KEYDOWN and event.key == pygame.K_r and bullets_in_mag == 0 and bullet_count > 0:
-            if V1 is None:  # If the gun doesn't exist, create it first
-                V1 = The_V1(player.rect.centerx, player.rect.centery, player)
-                all_sprites.add(V1)
+        hits_campfire = pygame.sprite.spritecollide(player,campfire_box,False)
+        if hits_campfire and can_camp == True:
+            player_health += 20
+            can_camp = False
+            screen.fill(black)
+            pygame.display.update()
+            time.sleep(0.5)
 
-            reloading_V1 = True
-            reload_start_time = pygame.time.get_ticks()
-            V1.start_reload()
-            ejected_mag = V1_Mag(V1.rect.x, V1.rect.y)
-            all_sprites.add(ejected_mag)
-        if reloading_V1:
-            if pygame.time.get_ticks() - reload_start_time > reload_time:
-                reloading_V1 = False
-                bullets_in_mag += 4
-                bullet_count -= 4
-                if V1 is not None:
-                    V1.finish_reload()
+        #Player taking damage#
+        bumps_enemy = pygame.sprite.spritecollide(player,enemies,False)
+        iframes -= 1
+        if bumps_enemy and iframes <= 0:
+            player_health -= enemy_damage
+            iframes = 60
+        bumps_strong_enemy = pygame.sprite.spritecollide(player,strong_enemies,False)
+        if bumps_strong_enemy and iframes <= 0:
+            player_health -= strong_enemy_damage
+            iframes = 5
+            for strong_enemy in strong_enemies:
+                if strong_enemy.facing == "left":
+                    slide_velocity = -10
+                if strong_enemy.facing == "right":
+                    slide_velocity = 10
+            sliding = True
+        bumps_boss = pygame.sprite.spritecollide(player,bosses,False)
+        if bumps_boss and iframes <= 0:
+            player_health -= boss_damage
+            iframes = 10
+            for boss in bumps_boss:
+                if boss.facing == "left":
+                    slide_velocity = -15
+                if boss.facing == "right":
+                    slide_velocity = 15
+            sliding = True
 
-        #Checking mag#
-        if event.type == pygame.KEYDOWN and event.key == pygame.K_t:
-            if not mag_display_active:
-                mag_display_start_time = pygame.time.get_ticks()
-                mag_display_active = True
+        #Sliding#
+        if sliding:
+            player.rect.x += slide_velocity
+            slide_velocity *= slide_friction
+            if abs(slide_velocity) < 0.1:
+                slide_velocity = 0
+                sliding = False
 
+        if player_health <= 0:
+            if boss_tick < 41:
+                game_end()
+                platforms.empty()
+                enemies.empty()
+                all_sprites.empty()
+                damage_box.empty()
+                walls.empty()
+                damage_box.empty()
+                shop_box.empty()
+                antipass_box.empty()
+                strong_enemies.empty()
+                campfire_box.empty()
+                bullets.empty()
+                bosses.empty()
+                stage_count = 0
+                boss_tick = 0
+                points //= 2
+                bullets_in_mag = 4
+                bullet_count = 4
+                player.rect.x = 50
+                player.rect.y = Height - 500 - player.rect.height
+                platforms.add(Platform(0, Height - 20, Width, 20))
+
+        damage_box_in = pygame.sprite.spritecollide(player,damage_box,False)
+        if damage_box_in and iframes <= 0:
+            player_health -= 10
+            iframes += 45
+        if damage_box_in:
+            player.rect.x = player.rect.x
+            player.velocity_y = 0
+            player.rect.y = player.rect.y - 1
+
+        #Shoppping trigger#
+        noshop_frames -= 1
+        shop_trigger = pygame.sprite.spritecollide(player,shop_box,False)
+        if shop_trigger and noshop_frames <= 0:
+            shop_menu(points)
+
+        #Switching stages#
+        collision_box_hit = pygame.sprite.spritecollide(player,collision_box,False)
+        if collision_box_hit and len(bosses) > 0:
+            forcedcombat_message = boss_font.render("The portal is too corrupted to function", True, boss_color)
+            screen.blit(forcedcombat_message, [Width / 7, Height / 2])
+            pygame.display.update()
+        if collision_box_hit and len(bosses) == 0:
+            boss_tick += 1
+            if 1 < stage_count and (boss_tick != 19 or boss_tick != 20):
+                stage_count = random.randint(2,7)
+            if stage_count <= 1:
+                stage_count += 1
+            if boss_tick == (39 or 40):
+                stage_count = boss_tick
+            if boss_tick == 41:
+                Bugging = False
+            anti_lag = 1
+            platforms.empty()
+            enemies.empty()
+            all_sprites.empty()
+            damage_box.empty()
+            player.rect.x = 0
+            walls.empty()
+            damage_box.empty()
+            shop_box.empty()
+            antipass_box.empty()
+            strong_enemies.empty()
+            campfire_box.empty()
+            bullets.empty()
+            bosses.empty()
+            player.rect.y = Height - 20 - player.rect.height
+            can_camp = True
+        if stage_1 == True and anti_lag == 1 and stage_count == 1:
+            stage1()
+        if stage_2 == True and anti_lag == 1 and stage_count == 2:
+            stage2()
+        if stage_3 == True and anti_lag == 1 and stage_count == 3:
+            stage3()
+        if stage_4 == True and anti_lag == 1 and stage_count == 4:
+            stage4()
+        if stage_5 == True and anti_lag == 1 and stage_count == 5:
+            stage5()
+        if stage_6 == True and anti_lag == 1 and stage_count == 6:
+            stage6()
+        if stage_7 == True and anti_lag == 1 and stage_count == 7:
+            stage7()
+
+        if stage_20 == True and anti_lag == 1 and stage_count == 40:
+            stage20()
+
+        all_sprites.add(player)
+        all_sprites.add(platforms)
+        all_sprites.add(enemies)
+        all_sprites.add(strong_enemies)
+
+        #Enemy 'ai'#
+        enemy_tick += 1
+        if enemy_tick >= enemy_action_time:
+            enemy_random_gen = random.randint(1, 20)
+            enemy_tick = 0
+        enemy_number = enemy_random_gen
+
+        #Drawings#
+        screen.blit(current_background,[0,0])
+        all_sprites.draw(screen)
+        player.draw()
+        bullets.draw(screen)
+        bullets.update()
+        collision_box.draw(screen)
+        bosses.draw(screen)
+        bosses.update()
+        '''damage_box.draw(screen)'''
+        walls.draw(screen)
+        '''shop_box.draw(screen)
+        campfire_box.draw(screen)'''
         if mag_display_active:
             current_time = pygame.time.get_ticks()
             if current_time - mag_display_start_time < mag_display_time:
                 mag_image = mag_images[bullets_in_mag]
-                screen.blit(mag_image, (0,70))
+                screen.blit(mag_image, (0, 70))
                 pygame.display.update()
             else:
                 mag_display_active = False
 
-    #Holstering the V1#
-    if len(bullets) == 0:
-        if V1_firing:
-            V1_timer = pygame.time.get_ticks()
-            V1_firing = False
-    else:
-        V1_timer = pygame.time.get_ticks()
+        if ammo_display_active:
+            current_time = pygame.time.get_ticks()
+            if current_time - ammo_display_start_time < ammo_display_duration:
+                current_ammo_held = writing_font.render(f"Ammo in bag: {bullet_count}", True, white)
+                screen.blit(current_ammo_held, [0, 125])
+            else:
+                ammo_display_active = False
+        #Stats#
+        current_health = writing_font.render(f"Current Health: {player_health}",True,red)
+        screen.blit(current_health, [0,0])
+        current_points = writing_font.render(f"Points : {points}",True,green)
+        screen.blit(current_points, [0,30])
+        boss_amount = writing_font.render(f"{boss_tick}", True, blue)
+        screen.blit(boss_amount, [770,0])
 
-    if V1 is not None and pygame.time.get_ticks() - V1_timer > 750 and reloading_V1 is not True:
-        all_sprites.remove(V1)
-        V1.kill()
-        V1 = None
-
-
-    if player.attack:
-        player.attack_timer -= 1
-    if player.attack_timer <= 0:
-        player.attack = False
-    attack_cooldown -= 1
-    dash_cooldown -= 1
-
-    all_sprites.update()
-
-    if have_steelsword:
-        Player_Attack = 20
-    if player.attack:
-        hits_enemy = [enemy for enemy in enemies if player.attack_hitbox.colliderect(enemy.rect)]
-        for enemy in hits_enemy:
-            enemy.take_damage(Player_Attack)
-
-        hits_strong_enemy = [strong_enemy for strong_enemy in strong_enemies if player.attack_hitbox.colliderect(strong_enemy.rect)]
-        for strong_enemy in hits_strong_enemy:
-            strong_enemy.take_damage(Player_Attack)
-
-        hits_boss = [boss for boss in bosses if player.attack_hitbox.colliderect(boss.rect)]
-        for boss in hits_boss:
-            boss.take_damage(Player_Attack)
-    #Special interaction#
-    for bullet in bullets:
-        shot_enemy = [enemy for enemy in enemies if bullet.rect.colliderect(enemy.rect)]
-        for enemy in shot_enemy:
-            enemy.take_damage(V1_damage)
-            bullet.kill()
-        shot_strong_enemy = [strong_enemy for strong_enemy in strong_enemies if bullet.rect.colliderect(strong_enemy.rect)]
-        for strong_enemy in shot_strong_enemy:
-            strong_enemy.take_damage(V1_damage)
-            bullet.kill()
-        shot_boss = [boss for boss in bosses if bullet.rect.colliderect(boss.rect)]
-        for boss in shot_boss:
-            boss.take_damage(V1_damage)
-            bullet.kill()
-
-        coin_shot = pygame.sprite.spritecollide(bullet,coins,True)
-        if coin_shot:
-            if len(enemies) > 0:
-                enemy = enemies.sprites()[0]
-                enemy.take_damage(200)
-            if len(strong_enemies) > 0:
-                strong_enemy = strong_enemies.sprites()[0]
-                strong_enemy.take_damage(200)
-            if len(bosses) > 0:
-                boss = bosses.sprites()[0]
-                boss.take_damage(200)
-    #Collision#
-    hits_platform = pygame.sprite.spritecollide(player,platforms,False)
-    if hits_platform:
-        if player.velocity_y > 0:
-            player.rect.bottom = hits_platform[0].rect.top
-            player.velocity_y = 0
-            player.on_ground = True
-
-    hits_wall = pygame.sprite.spritecollide(player,walls,False)
-    if hits_wall:
-        if player.facing == "right":
-            player.rect.x = player.rect.x - 10
-        if player.facing == "left":
-            player.rect.x = player.rect.x + 10
-    if (stage_5 == True and stage_count == 5):
-        for enemy in enemies:
-            enemy_hits_wall = pygame.sprite.spritecollide(enemy,walls,False)
-            if enemy_hits_wall:
-                if enemy.facing == "right":
-                    enemy.rect.x = enemy.rect.x - 10
-                if enemy.facing == "left":
-                    enemy.rect.x = enemy.rect.x + 10
-
-    hits_anti = pygame.sprite.spritecollide(player,antipass_box,False)
-    if hits_anti:
-        if player.facing == "right":
-            player.rect.x = player.rect.x - 10
-        if player.facing == "left":
-            player.rect.x = player.rect.x + 10
-
-    hits_campfire = pygame.sprite.spritecollide(player,campfire_box,False)
-    if hits_campfire and can_camp == True:
-        player_health += 20
-        can_camp = False
-        screen.fill(black)
+        #Refreshing and updating screen#
         pygame.display.update()
-        time.sleep(0.5)
+        clock.tick(FPS)
 
-    #Player taking damage#
-    bumps_enemy = pygame.sprite.spritecollide(player,enemies,False)
-    iframes -= 1
-    if bumps_enemy and iframes <= 0:
-        player_health -= enemy_damage
-        iframes = 60
-    bumps_strong_enemy = pygame.sprite.spritecollide(player,strong_enemies,False)
-    if bumps_strong_enemy and iframes <= 0:
-        player_health -= strong_enemy_damage
-        iframes = 5
-        for strong_enemy in strong_enemies:
-            if strong_enemy.facing == "left":
-                slide_velocity = -10
-            if strong_enemy.facing == "right":
-                slide_velocity = 10
-        sliding = True
-    bumps_boss = pygame.sprite.spritecollide(player,bosses,False)
-    if bumps_boss and iframes <= 0:
-        player_health -= boss_damage
-        iframes = 10
-        for boss in bumps_boss:
-            if boss.facing == "left":
-                slide_velocity = -15
-            if boss.facing == "right":
-                slide_velocity = 15
-        sliding = True
+        '''print(f"On ground: {player.on_ground}")
+        print(f"Facing: {player.facing}")
+        print(f"Attacking: {player.attack}")
+        print(f"Enemy tick: {enemy_tick}")
+        print(enemy_random_gen)
+        print(enemy_number)
+        print(points)
+        print(f"Stage count:{stage_count}")
+        print(f"Boss tick: {boss_tick}")
+        print(V1)
+        print(reinforced_armor)'''
+        print(ammo_display_active)
 
-    #Sliding#
-    if sliding:
-        player.rect.x += slide_velocity
-        slide_velocity *= slide_friction
-        if abs(slide_velocity) < 0.1:
-            slide_velocity = 0
-            sliding = False
-
-    if player_health <= 0:
-        Bugging = False
-
-    damage_box_in = pygame.sprite.spritecollide(player,damage_box,False)
-    if damage_box_in and iframes <= 0:
-        player_health -= 10
-        iframes += 45
-    if damage_box_in:
-        player.rect.x = player.rect.x
-        player.velocity_y = 0
-        player.rect.y = player.rect.y - 1
-
-    #Shoppping trigger#
-    noshop_frames -= 1
-    shop_trigger = pygame.sprite.spritecollide(player,shop_box,False)
-    if shop_trigger and noshop_frames <= 0:
-        shop_menu(points)
-
-    #Switching stages#
-    collision_box_hit = pygame.sprite.spritecollide(player,collision_box,False)
-    if collision_box_hit and len(bosses) > 0:
-        forcedcombat_message = boss_font.render("The portal is too corrupted to function", True, boss_color)
-        screen.blit(forcedcombat_message, [Width / 7, Height / 2])
-        pygame.display.update()
-    if collision_box_hit and len(bosses) == 0:
-        boss_tick += 1
-        if 1 < stage_count and (boss_tick != 19 or boss_tick != 20):
-            stage_count = random.randint(2,7)
-        if stage_count <= 1:
-            stage_count += 1
-        if boss_tick == (39 or 40):
-            stage_count = boss_tick
-        if boss_tick == 41:
-            Bugging = False
-        anti_lag = 1
-        platforms.empty()
-        enemies.empty()
-        all_sprites.empty()
-        damage_box.empty()
-        player.rect.x = 0
-        walls.empty()
-        damage_box.empty()
-        shop_box.empty()
-        antipass_box.empty()
-        strong_enemies.empty()
-        campfire_box.empty()
-        bullets.empty()
-        bosses.empty()
-        player.rect.y = Height - 20 - player.rect.height
-        can_camp = True
-    if stage_1 == True and anti_lag == 1 and stage_count == 1:
-        stage1()
-    if stage_2 == True and anti_lag == 1 and stage_count == 2:
-        stage2()
-    if stage_3 == True and anti_lag == 1 and stage_count == 3:
-        stage3()
-    if stage_4 == True and anti_lag == 1 and stage_count == 4:
-        stage4()
-    if stage_5 == True and anti_lag == 1 and stage_count == 5:
-        stage5()
-    if stage_6 == True and anti_lag == 1 and stage_count == 6:
-        stage6()
-    if stage_7 == True and anti_lag == 1 and stage_count == 7:
-        stage7()
-
-    if stage_20 == True and anti_lag == 1 and stage_count == 40:
-        stage20()
-
-    all_sprites.add(player)
-    all_sprites.add(platforms)
-    all_sprites.add(enemies)
-    all_sprites.add(strong_enemies)
-
-    #Enemy 'ai'#
-    enemy_tick += 1
-    if enemy_tick >= enemy_action_time:
-        enemy_random_gen = random.randint(1, 20)
-        enemy_tick = 0
-    enemy_number = enemy_random_gen
-
-    #Drawings#
-    screen.blit(current_background,[0,0])
-    all_sprites.draw(screen)
-    player.draw()
-    bullets.draw(screen)
-    bullets.update()
-    collision_box.draw(screen)
-    bosses.draw(screen)
-    bosses.update()
-    '''damage_box.draw(screen)'''
-    walls.draw(screen)
-    '''shop_box.draw(screen)
-    campfire_box.draw(screen)'''
-    #Stats#
-    current_health = writing_font.render(f"Current Health: {player_health}",True,red)
-    screen.blit(current_health, [0,0])
-    current_points = writing_font.render(f"Points : {points}",True,green)
-    screen.blit(current_points, [0,30])
-    boss_amount = writing_font.render(f"{boss_tick}", True, blue)
-    screen.blit(boss_amount, [770,0])
-
-    #Refreshing and updating screen#
-    pygame.display.update()
-    clock.tick(FPS)
-
-    '''print(f"On ground: {player.on_ground}")
-    print(f"Facing: {player.facing}")
-    print(f"Attacking: {player.attack}")
-    print(f"Enemy tick: {enemy_tick}")
-    print(enemy_random_gen)
-    print(enemy_number)
-    print(points)'''
-    '''print(f"Stage count:{stage_count}")
-    print(f"Boss tick: {boss_tick}")'''
-    print(V1)
-
-if boss_tick < 41:
-    game_end()
 if boss_tick >= 41:
     game_won()
+    platforms.empty()
+    enemies.empty()
+    all_sprites.empty()
+    damage_box.empty()
+    walls.empty()
+    damage_box.empty()
+    shop_box.empty()
+    antipass_box.empty()
+    strong_enemies.empty()
+    campfire_box.empty()
+    bullets.empty()
+    bosses.empty()
+
 sys.exit()
