@@ -13,7 +13,7 @@ Width = 800
 Height = 600
 FPS = 60
 clock = pygame.time.Clock()
-anti_lag = 0
+anti_lag = 1
 writing_font = pygame.font.SysFont("cambriamath", 25)
 boss_font = pygame.font.SysFont("agencyfb", 50)
 #Stage variables#
@@ -557,7 +557,7 @@ def background_changing():
         stage_19 = False
         stage_20 = False
 
-    if boss_tick == 39:
+    if boss_tick == 99:
         stage_0 = False
         stage_1 = False
         stage_2 = False
@@ -580,7 +580,7 @@ def background_changing():
         stage_19 = True
         stage_20 = False
 
-    if boss_tick == 40:
+    if boss_tick == 100:
         stage_0 = False
         stage_1 = False
         stage_2 = False
@@ -734,6 +734,14 @@ def shop_menu(points):
 
     noshop_frames = 300
     root.mainloop()
+
+def stage0():
+    global anti_lag
+    platforms.add(Platform(0, Height - 20, Width, 20))
+    damage_box.add(CollisionBox(230, 0, 570, 360))
+    antipass_box.add(AntiPass(200, 0, 30, 360))
+    collision_box.add(CollisionBox(790, Height - 80, 60, 60))
+    anti_lag = 0
 
 def stage1():
     global anti_lag
@@ -1322,13 +1330,10 @@ class Boss(pygame.sprite.Sprite):
 #Create *things*#
 #Collision boxes#
 collision_box = pygame.sprite.Group()
-collision_box.add(CollisionBox(790, Height - 80,60,60))
 #Antipass boxes#
 antipass_box = pygame.sprite.Group()
-antipass_box.add(AntiPass(200,0,30,360))
 #Damage boxes#
 damage_box = pygame.sprite.Group()
-damage_box.add(CollisionBox(230,0,570,360))
 #Shop boxes#
 shop_box = pygame.sprite.Group()
 #Campfire boxes#
@@ -1341,7 +1346,6 @@ coins = pygame.sprite.Group()
 bullets = pygame.sprite.Group()
 #Platforms#
 platforms = pygame.sprite.Group()
-platforms.add(Platform(0,Height - 20,Width,20))
 #Wall#
 walls = pygame.sprite.Group()
 #Enemies#
@@ -1374,13 +1378,17 @@ while Bugging:
             if event.type == pygame.KEYDOWN and event.key == pygame.K_BACKSPACE:
                 player_health *= 0
             #Dev buttons#
-            '''if event.type == pygame.KEYDOWN and event.key == pygame.K_END:
-                boss_tick = 39
-                stage_count = 39
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_END:
+                boss_tick = 99
+                stage_count = 99
             if event.type == pygame.KEYDOWN and event.key == pygame.K_DELETE:
                 FPS = 1
             if event.type == pygame.KEYDOWN and event.key == pygame.K_PAGEDOWN:
-                V1_damage = 1000'''
+                V1_damage = 1000
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_PAGEUP:
+                points += 100
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_HOME:
+                player_health += 100
             #Attack#
             if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE and player.attack_timer <= 0 and attack_cooldown <= 0:
                 player.attack = True
@@ -1585,7 +1593,7 @@ while Bugging:
                 sliding = False
 
         if player_health <= 0:
-            if boss_tick < 41:
+            if boss_tick < 101:
                 game_end()
                 platforms.empty()
                 enemies.empty()
@@ -1606,7 +1614,7 @@ while Bugging:
                 bullet_count = 4
                 player.rect.x = 50
                 player.rect.y = Height - 500 - player.rect.height
-                platforms.add(Platform(0, Height - 20, Width, 20))
+                stage0()
 
         damage_box_in = pygame.sprite.spritecollide(player,damage_box,False)
         if damage_box_in and iframes <= 0:
@@ -1631,13 +1639,13 @@ while Bugging:
             pygame.display.update()
         if collision_box_hit and len(bosses) == 0:
             boss_tick += 1
-            if 1 < stage_count and (boss_tick != 19 or boss_tick != 20):
+            if 1 < stage_count and (boss_tick != 99 or boss_tick != 100):
                 stage_count = random.randint(2,7)
             if stage_count <= 1:
                 stage_count += 1
-            if boss_tick == (39 or 40):
+            if boss_tick == (99 or 100):
                 stage_count = boss_tick
-            if boss_tick == 41:
+            if boss_tick == 101:
                 Bugging = False
             anti_lag = 1
             platforms.empty()
@@ -1655,6 +1663,9 @@ while Bugging:
             bosses.empty()
             player.rect.y = Height - 20 - player.rect.height
             can_camp = True
+
+        if stage_0 == True and anti_lag == 1 and stage_count == 0:
+            stage0()
         if stage_1 == True and anti_lag == 1 and stage_count == 1:
             stage1()
         if stage_2 == True and anti_lag == 1 and stage_count == 2:
@@ -1670,7 +1681,7 @@ while Bugging:
         if stage_7 == True and anti_lag == 1 and stage_count == 7:
             stage7()
 
-        if stage_20 == True and anti_lag == 1 and stage_count == 40:
+        if stage_20 == True and anti_lag == 1 and stage_count == 100:
             stage20()
 
         all_sprites.add(player)
@@ -1733,13 +1744,14 @@ while Bugging:
         print(enemy_random_gen)
         print(enemy_number)
         print(points)
-        print(f"Stage count:{stage_count}")
         print(f"Boss tick: {boss_tick}")
         print(V1)
         print(reinforced_armor)
+        print(f"Stage count:{stage_count}")
+        print(stage_0)
         print(ammo_display_active)'''
 
-if boss_tick >= 41:
+if boss_tick >= 101:
     game_won()
     platforms.empty()
     enemies.empty()
