@@ -59,7 +59,7 @@ attacking = False
 attack_cooldown = 0
 dash_length = 250
 dash_cooldown = 0
-points = 20
+points = 0
 player_health = 100
 iframes = 0
 noshop_frames = 0
@@ -1374,13 +1374,13 @@ while Bugging:
             if event.type == pygame.KEYDOWN and event.key == pygame.K_BACKSPACE:
                 player_health *= 0
             #Dev buttons#
-            if event.type == pygame.KEYDOWN and event.key == pygame.K_END:
+            '''if event.type == pygame.KEYDOWN and event.key == pygame.K_END:
                 boss_tick = 39
                 stage_count = 39
             if event.type == pygame.KEYDOWN and event.key == pygame.K_DELETE:
                 FPS = 1
             if event.type == pygame.KEYDOWN and event.key == pygame.K_PAGEDOWN:
-                V1_damage = 1000
+                V1_damage = 1000'''
             #Attack#
             if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE and player.attack_timer <= 0 and attack_cooldown <= 0:
                 player.attack = True
@@ -1736,8 +1736,8 @@ while Bugging:
         print(f"Stage count:{stage_count}")
         print(f"Boss tick: {boss_tick}")
         print(V1)
-        print(reinforced_armor)'''
-        print(ammo_display_active)
+        print(reinforced_armor)
+        print(ammo_display_active)'''
 
 if boss_tick >= 41:
     game_won()
